@@ -3,314 +3,28 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "AzureSqlToLake",
-				"type": "Copy",
-				"dependsOn": [
-					{
-						"activity": "last_cdc",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					},
-					{
-						"activity": "current",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"source": {
-						"type": "AzureSqlSource",
-						"sqlReaderQuery": {
-							"value": "@concat(\r\n  'SELECT * FROM ',\r\n  pipeline().parameters.schema, '.', pipeline().parameters.table,\r\n  ' WHERE ',\r\n  pipeline().parameters.cdc_col,\r\n  ' > ',\r\n  if(\r\n    or(\r\n      not(empty(pipeline().parameters.from_date)),\r\n      equals(length(activity('last_cdc').output.value), 0)\r\n    ),\r\n    concat('''', pipeline().parameters.from_date, ''''),\r\n    concat('''', activity('last_cdc').output.value[0].cdc, '''')\r\n  )\r\n)\r\n",
-							"type": "Expression"
-						},
-						"queryTimeout": "02:00:00",
-						"partitionOption": "None"
-					},
-					"sink": {
-						"type": "ParquetSink",
-						"storeSettings": {
-							"type": "AzureBlobFSWriteSettings"
-						},
-						"formatSettings": {
-							"type": "ParquetWriteSettings"
-						}
-					},
-					"enableStaging": false,
-					"translator": {
-						"type": "TabularTranslator",
-						"typeConversion": true,
-						"typeConversionSettings": {
-							"allowDataTruncation": true,
-							"treatBooleanAsNumber": false
-						}
-					}
-				},
-				"inputs": [
-					{
-						"referenceName": "Azure_sql_dataset",
-						"type": "DatasetReference"
-					}
-				],
-				"outputs": [
-					{
-						"referenceName": "Parquet_dynamic",
-						"type": "DatasetReference",
-						"parameters": {
-							"container": "bronze",
-							"folder": {
-								"value": "@pipeline().parameters.table",
-								"type": "Expression"
-							},
-							"file": {
-								"value": "@concat(pipeline().parameters.table,'_',variables('current'))",
-								"type": "Expression"
-							}
-						}
-					}
-				]
-			},
-			{
-				"name": "last_cdc",
-				"type": "Lookup",
-				"dependsOn": [],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"source": {
-						"type": "JsonSource",
-						"storeSettings": {
-							"type": "AzureBlobFSReadSettings",
-							"recursive": true,
-							"enablePartitionDiscovery": false
-						},
-						"formatSettings": {
-							"type": "JsonReadSettings"
-						}
-					},
-					"dataset": {
-						"referenceName": "Json_dynamic",
-						"type": "DatasetReference",
-						"parameters": {
-							"container": "bronze",
-							"folder": "cdc",
-							"file": "cdc.json"
-						}
-					},
-					"firstRowOnly": false
-				}
-			},
-			{
-				"name": "current",
-				"type": "SetVariable",
-				"dependsOn": [],
-				"policy": {
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"variableName": "current",
-					"value": {
-						"value": "@utcNow()",
-						"type": "Expression"
-					}
-				}
-			},
-			{
-				"name": "If Condition1",
-				"type": "IfCondition",
-				"dependsOn": [
-					{
-						"activity": "AzureSqlToLake",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"userProperties": [],
-				"typeProperties": {
-					"expression": {
-						"value": "@greater(activity('AzureSqlToLake').output.dataRead, 0)\n",
-						"type": "Expression"
-					},
-					"ifFalseActivities": [
-						{
-							"name": "DeleteEmptyFile",
-							"type": "Delete",
-							"dependsOn": [],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"dataset": {
-									"referenceName": "Parquet_dynamic",
-									"type": "DatasetReference",
-									"parameters": {
-										"container": "bronze",
-										"folder": {
-											"value": "@pipeline().parameters.table",
-											"type": "Expression"
-										},
-										"file": "@concat(pipeline().parameters.table,'_',variables('current'))"
-									}
-								},
-								"enableLogging": false,
-								"storeSettings": {
-									"type": "AzureBlobStorageReadSettings",
-									"recursive": true,
-									"enablePartitionDiscovery": false
-								}
-							}
-						}
-					],
-					"ifTrueActivities": [
-						{
-							"name": "update_last_cdc",
-							"type": "Copy",
-							"dependsOn": [
-								{
-									"activity": "max_cdc",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"source": {
-									"type": "JsonSource",
-									"additionalColumns": [
-										{
-											"name": "cdc",
-											"value": {
-												"value": "@activity('max_cdc').output.resultSets[0].rows[0].cdc",
-												"type": "Expression"
-											}
-										}
-									],
-									"storeSettings": {
-										"type": "AzureBlobFSReadSettings",
-										"recursive": true,
-										"enablePartitionDiscovery": false
-									},
-									"formatSettings": {
-										"type": "JsonReadSettings"
-									}
-								},
-								"sink": {
-									"type": "JsonSink",
-									"storeSettings": {
-										"type": "AzureBlobFSWriteSettings"
-									},
-									"formatSettings": {
-										"type": "JsonWriteSettings"
-									}
-								},
-								"enableStaging": false
-							},
-							"inputs": [
-								{
-									"referenceName": "Json_dynamic",
-									"type": "DatasetReference",
-									"parameters": {
-										"container": "bronze",
-										"folder": "cdc",
-										"file": "empty.json"
-									}
-								}
-							],
-							"outputs": [
-								{
-									"referenceName": "Json_dynamic",
-									"type": "DatasetReference",
-									"parameters": {
-										"container": "bronze",
-										"folder": "cdc",
-										"file": "cdc.json"
-									}
-								}
-							]
-						},
-						{
-							"name": "max_cdc",
-							"type": "Script",
-							"dependsOn": [],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"linkedServiceName": {
-								"referenceName": "AzureProjectDBLink",
-								"type": "LinkedServiceReference"
-							},
-							"typeProperties": {
-								"scripts": [
-									{
-										"type": "Query",
-										"text": {
-											"value": "select max(@{pipeline().parameters.cdc_col}) as cdc from @{pipeline().parameters.schema}.@{pipeline().parameters.table}",
-											"type": "Expression"
-										}
-									}
-								],
-								"scriptBlockExecutionTimeout": "02:00:00"
-							}
-						}
-					]
-				}
-			},
-			{
 				"name": "ForEach1",
 				"type": "ForEach",
 				"dependsOn": [],
 				"userProperties": [],
 				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.loop_input",
+						"type": "Expression"
+					},
 					"activities": [
 						{
-							"name": "AzureSqlToLake_copy1",
+							"name": "AzureSqlToLake",
 							"type": "Copy",
 							"dependsOn": [
 								{
-									"activity": "last_cdc_copy1",
+									"activity": "last_cdc",
 									"dependencyConditions": [
 										"Succeeded"
 									]
 								},
 								{
-									"activity": "current_copy1",
+									"activity": "current",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -328,7 +42,7 @@
 								"source": {
 									"type": "AzureSqlSource",
 									"sqlReaderQuery": {
-										"value": "@concat(\r\n  'SELECT * FROM ',\r\n  pipeline().parameters.schema, '.', pipeline().parameters.table,\r\n  ' WHERE ',\r\n  pipeline().parameters.cdc_col,\r\n  ' > ',\r\n  if(\r\n    or(\r\n      not(empty(pipeline().parameters.from_date)),\r\n      equals(length(activity('last_cdc').output.value), 0)\r\n    ),\r\n    concat('''', pipeline().parameters.from_date, ''''),\r\n    concat('''', activity('last_cdc').output.value[0].cdc, '''')\r\n  )\r\n)\r\n",
+										"value": "@concat(\n  'SELECT * FROM ',\n  item().schema, '.', item().table,\n  ' WHERE ',\n  item().cdc_col,\n  ' > ',\n  if(\n    or(\n      not(empty(item().from_date)),\n      equals(length(activity('last_cdc').output.value), 0)\n    ),\n    concat('''', item().from_date, ''''),\n    concat('''', activity('last_cdc').output.value[0].cdc, '''')\n  )\n)\n",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
@@ -366,11 +80,11 @@
 									"parameters": {
 										"container": "bronze",
 										"folder": {
-											"value": "@pipeline().parameters.table",
+											"value": "@item().table\n",
 											"type": "Expression"
 										},
 										"file": {
-											"value": "@concat(pipeline().parameters.table,'_',variables('current'))",
+											"value": "@concat(item().table, '_', variables('current'))\n",
 											"type": "Expression"
 										}
 									}
@@ -378,7 +92,7 @@
 							]
 						},
 						{
-							"name": "last_cdc_copy1",
+							"name": "last_cdc",
 							"type": "Lookup",
 							"dependsOn": [],
 							"policy": {
@@ -414,7 +128,7 @@
 							}
 						},
 						{
-							"name": "current_copy1",
+							"name": "current",
 							"type": "SetVariable",
 							"dependsOn": [],
 							"policy": {
@@ -431,11 +145,11 @@
 							}
 						},
 						{
-							"name": "If Condition1_copy1",
+							"name": "If Condition",
 							"type": "IfCondition",
 							"dependsOn": [
 								{
-									"activity": "AzureSqlToLake_copy1",
+									"activity": "AzureSqlToLake",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -449,7 +163,7 @@
 								},
 								"ifFalseActivities": [
 									{
-										"name": "DeleteEmptyFile_copy1",
+										"name": "DeleteEmptyFile",
 										"type": "Delete",
 										"dependsOn": [],
 										"policy": {
@@ -467,10 +181,13 @@
 												"parameters": {
 													"container": "bronze",
 													"folder": {
-														"value": "@pipeline().parameters.table",
+														"value": "@item().table\n",
 														"type": "Expression"
 													},
-													"file": "@concat(pipeline().parameters.table,'_',variables('current'))"
+													"file": {
+														"value": "@concat(item().table, '_', variables('current'))\n",
+														"type": "Expression"
+													}
 												}
 											},
 											"enableLogging": false,
@@ -484,11 +201,11 @@
 								],
 								"ifTrueActivities": [
 									{
-										"name": "update_last_cdc_copy1",
+										"name": "update_last_cdc",
 										"type": "Copy",
 										"dependsOn": [
 											{
-												"activity": "max_cdc_copy1",
+												"activity": "max_cdc",
 												"dependencyConditions": [
 													"Succeeded"
 												]
@@ -558,7 +275,7 @@
 										]
 									},
 									{
-										"name": "max_cdc_copy1",
+										"name": "max_cdc",
 										"type": "Script",
 										"dependsOn": [],
 										"policy": {
@@ -578,7 +295,7 @@
 												{
 													"type": "Query",
 													"text": {
-														"value": "select max(@{pipeline().parameters.cdc_col}) as cdc from @{pipeline().parameters.schema}.@{pipeline().parameters.table}",
+														"value": "select max(@{item().cdc_col}) as cdc\nfrom @{item().schema}.@{item().table}\n",
 														"type": "Expression"
 													}
 												}
@@ -594,17 +311,40 @@
 			}
 		],
 		"parameters": {
-			"schema": {
-				"type": "string"
-			},
-			"table": {
-				"type": "string"
-			},
-			"cdc_col": {
-				"type": "string"
-			},
-			"from_date": {
-				"type": "string"
+			"loop_input": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"schema": "dbo",
+						"table": "DimUser",
+						"cdc_col": "updated_at",
+						"from_date": ""
+					},
+					{
+						"schema": "dbo",
+						"table": "DimTrack",
+						"cdc_col": "updated_at",
+						"from_date": ""
+					},
+					{
+						"schema": "dbo",
+						"table": "DimDate",
+						"cdc_col": "date",
+						"from_date": ""
+					},
+					{
+						"schema": "dbo",
+						"table": "DimArtist",
+						"cdc_col": "updated_at",
+						"from_date": ""
+					},
+					{
+						"schema": "dbo",
+						"table": "FactStream",
+						"cdc_col": "stream_timestamp",
+						"from_date": ""
+					}
+				]
 			}
 		},
 		"variables": {

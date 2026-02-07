@@ -1,0 +1,91 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "df-azureproject-naman"
+		},
+		"AzureProjectDBLink_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'AzureProjectDBLink'"
+		},
+		"DataLakeLink_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'DataLakeLink'"
+		},
+		"AzureKVLink_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://azureproject-kv.vault.azure.net/"
+		},
+		"AzureProjectDBLink_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "sportify-project.database.windows.net"
+		},
+		"AzureProjectDBLink_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "azureprojectdb"
+		},
+		"AzureProjectDBLink_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "adminnaman"
+		},
+		"DataLakeLink_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://azureprojectdatastrorage.dfs.core.windows.net/"
+		},
+		"containerUri": {
+			"type": "string",
+			"metadata": "URI to storage account containing linked ARM templates"
+		},
+		"containerSasToken": {
+			"type": "string",
+			"metadata": "Sas token to storage account containing linked ARM templates"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "df-azureproject-naman_ArmTemplate_0",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"AzureProjectDBLink_password": {
+						"value": "[parameters('AzureProjectDBLink_password')]"
+					},
+					"DataLakeLink_accountKey": {
+						"value": "[parameters('DataLakeLink_accountKey')]"
+					},
+					"AzureKVLink_properties_typeProperties_baseUrl": {
+						"value": "[parameters('AzureKVLink_properties_typeProperties_baseUrl')]"
+					},
+					"AzureProjectDBLink_properties_typeProperties_server": {
+						"value": "[parameters('AzureProjectDBLink_properties_typeProperties_server')]"
+					},
+					"AzureProjectDBLink_properties_typeProperties_database": {
+						"value": "[parameters('AzureProjectDBLink_properties_typeProperties_database')]"
+					},
+					"AzureProjectDBLink_properties_typeProperties_userName": {
+						"value": "[parameters('AzureProjectDBLink_properties_typeProperties_userName')]"
+					},
+					"DataLakeLink_properties_typeProperties_url": {
+						"value": "[parameters('DataLakeLink_properties_typeProperties_url')]"
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}

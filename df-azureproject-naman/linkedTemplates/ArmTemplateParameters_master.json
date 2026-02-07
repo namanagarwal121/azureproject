@@ -1,0 +1,36 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "df-azureproject-naman"
+		},
+		"AzureProjectDBLink_password": {
+			"value": ""
+		},
+		"DataLakeLink_accountKey": {
+			"value": ""
+		},
+		"AzureKVLink_properties_typeProperties_baseUrl": {
+			"value": "https://azureproject-kv.vault.azure.net/"
+		},
+		"AzureProjectDBLink_properties_typeProperties_server": {
+			"value": "sportify-project.database.windows.net"
+		},
+		"AzureProjectDBLink_properties_typeProperties_database": {
+			"value": "azureprojectdb"
+		},
+		"AzureProjectDBLink_properties_typeProperties_userName": {
+			"value": "adminnaman"
+		},
+		"DataLakeLink_properties_typeProperties_url": {
+			"value": "https://azureprojectdatastrorage.dfs.core.windows.net/"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}

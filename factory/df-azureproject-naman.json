@@ -1,0 +1,9 @@
+{
+	"name": "df-azureproject-naman",
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "1d70e7e4-dbc9-44c2-99ff-d775e389df9e",
+		"tenantId": "546be867-0dc2-4dd7-9abd-d96cf642dff2"
+	}
+}
